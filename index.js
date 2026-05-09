@@ -129,9 +129,12 @@ Tracker.prototype.send = function(packet, transactionId) {
 
     this.socket.send(packet, 0, packet.length, this.port, this.hostname, function(err) {
         if(err) {
-            clearTimeout(self.transactionCache[transactionId].timeout);
-            if(self.transactionCache[transactionId].callback)
-                self.transactionCache[transactionId].callback(err, null);
+            const transaction = self.transactionCache[transactionId];
+            if (transaction) {
+                clearTimeout(self.transactionCache[transactionId].timeout);
+                if(self.transactionCache[transactionId].callback)
+                    self.transactionCache[transactionId].callback(err, null);
+            }
             delete self.transactionCache[transactionId];
         }
     });
@@ -195,8 +198,8 @@ Tracker.prototype.scrape = function(info_hashes, options, cb) {
     } else {
 
         var requestUri = this.trackerUri.clone();
-        var qs = URI.buildQuery({ 
-            info_hash: _.map(info_hashes, function(hash) { return Buffer.from(hash, 'hex').toString('binary') }) 
+        var qs = URI.buildQuery({
+            info_hash: _.map(info_hashes, function(hash) { return Buffer.from(hash, 'hex').toString('binary') })
         }, true, false);
         requestUri.filename('scrape' + (requestUri.suffix() ? ('.' + requestUri.suffix()) : ''));
         requestUri.query(qs);
@@ -205,7 +208,10 @@ Tracker.prototype.scrape = function(info_hashes, options, cb) {
             if(err) return cb(err, null);
 
             if(res.statusCode !== 200) {
-                return cb(new Error("Unsuccessful response code from tracker: " + res.statusCode), null);
+                const error = new Error("Unsuccessful response code from tracker: " + res.statusCode);
+                error.response = res;
+                error.body = body;
+                return cb(error, null);
             }
 
             var data;
